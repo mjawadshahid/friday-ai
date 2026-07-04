@@ -59,9 +59,15 @@ def _category_for(ext: str) -> str:
     return OTHER
 
 
-def _is_in_category_folder(entry: Path, valid_names: set[str]) -> bool:
-    """A file is 'already organized' if its parent folder name is a known category."""
-    return bool(valid_names) and entry.parent.name in valid_names
+def _is_in_category_folder(entry: Path, valid_names: set[str], root: Path) -> bool:
+    """A file is 'already organized' if it sits inside a category *subfolder* of
+    root. The root folder itself is never a "category folder" — otherwise
+    organizing a folder literally named e.g. "Documents" would skip everything."""
+    return (
+        bool(valid_names)
+        and entry.parent != root
+        and entry.parent.name in valid_names
+    )
 
 
 def _unique_target(dest_dir: Path, filename: str) -> Path:
@@ -101,7 +107,7 @@ def organize_files(directory: str, mode: str = "type") -> dict:
     for entry in list(root.iterdir()):
         if not entry.is_file():
             continue  # never recurse; subfolders are off-limits
-        if _is_in_category_folder(entry, valid_names):
+        if _is_in_category_folder(entry, valid_names, root):
             skipped.append(str(entry))
             continue
 

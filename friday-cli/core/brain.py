@@ -66,7 +66,13 @@ def chat(messages: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
         resp = client.chat.completions.create(
             model=settings.model,
             messages=messages,
-            tools=[{k: v for k, v in spec.items() if k != "function"} for spec in TOOLS],
+            tools=[
+                {
+                    "type": "function",
+                    "function": {k: v for k, v in spec.items() if k != "function"},
+                }
+                for spec in TOOLS
+            ],
         )
         msg = resp.choices[0].message
         content = msg.content or ""
