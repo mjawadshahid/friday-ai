@@ -4,3 +4,7 @@ __pycache__/
 .env
 data/tasks.db
 logs/actions.log
+*.egg-info/
+build/
+dist/
+*.egg
