@@ -16,11 +16,11 @@ Two entry points:
 Scheduling (see README for the full guide):
   Windows Task Scheduler:
       Action:  Start a program
-      Program: C:\\path\\to\\friday-cli\\.venv\\Scripts\\python.exe
+      Program: C:\\path\\to\\juno-cli\\.venv\\Scripts\\python.exe
       Args:    -m tools.check_reminders
       Trigger: every 5 minutes (or on logon)
   macOS / Linux cron:
-      *\\/5 * * * *  /path/to/friday-cli/.venv/bin/python -m tools.check_reminders
+      *\\/5 * * * *  /path/to/juno-cli/.venv/bin/python -m tools.check_reminders
 """
 from __future__ import annotations
 
@@ -59,7 +59,7 @@ def _notify(title: str, message: str) -> None:
         notification.notify(
             title=title,
             message=message,
-            app_name="F.R.I.D.A.Y",
+            app_name="Juno",
             timeout=10,
         )
     except Exception as e:  # plyer missing or platform unsupported
@@ -72,7 +72,7 @@ def main() -> int:
     if not due:
         print("No reminders due.")
         return 0
-    title = "F.R.I.D.A.Y — Reminder"
+    title = "Juno — Reminder"
     for r in due:
         msg = f"{r['task']} (due {r['due_at']})"
         _notify(title, msg)

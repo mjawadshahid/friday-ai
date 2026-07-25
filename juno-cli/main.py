@@ -1,9 +1,9 @@
-"""F.R.I.D.A.Y CLI entry point.
+"""Juno CLI entry point.
 
 Usage:
-    friday                  -> interactive chat loop
-    friday "do the thing"   -> one-shot, prints the reply and exits
-    friday --voice "..."    -> enable voice mode (STT + TTS)
+    juno                  -> interactive chat loop
+    juno "do the thing"   -> one-shot, prints the reply and exits
+    juno --voice "..."    -> enable voice mode (STT + TTS)
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from rich.panel import Panel
 from rich.prompt import Prompt
 from rich.spinner import Spinner
 
-# Make `from config import …` work no matter where friday is invoked from.
+# Make `from config import …` work no matter where juno is invoked from.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from config import settings                       # noqa: E402
@@ -28,7 +28,7 @@ from core.fastpath import try_fast_path           # noqa: E402
 from core.guide import show_guide                 # noqa: E402
 from tools.check_reminders import format_due, get_due  # noqa: E402
 
-app = typer.Typer(add_completion=False, help="F.R.I.D.A.Y — your terminal AI assistant.")
+app = typer.Typer(add_completion=False, help="Juno — your terminal AI assistant.")
 console = Console()
 
 
@@ -38,8 +38,8 @@ def _preflight() -> None:
         console.print(Panel.fit(
             "[bold red]No API key set.[/bold red]\n\n"
             "Copy [cyan].env.example[/cyan] to [cyan].env[/cyan] and fill in\n"
-            "OPENAI_API_KEY, OPENAI_BASE_URL, and FRIDAY_MODEL.",
-            title="F.R.I.D.A.Y",
+            "OPENAI_API_KEY, OPENAI_BASE_URL, and JUNO_MODEL.",
+            title="Juno",
         ))
         raise typer.Exit(1)
     due = get_due()
@@ -51,7 +51,7 @@ def _render_reply(text: str, voice: bool = False) -> None:
     """Render the assistant's reply. Optionally speak it out loud."""
     if not text.strip():
         text = "(no reply)"
-    console.print(Panel(Markdown(text), title="F.R.I.D.A.Y", border_style="cyan"))
+    console.print(Panel(Markdown(text), title="Juno", border_style="cyan"))
     if voice:
         try:
             from core.voice import speak
@@ -87,7 +87,7 @@ def _run_turn(history: list[dict], voice_in: bool, voice_out: bool) -> str:
             _render_reply(quick, voice=voice_out)
         return quick
 
-    with Live(Spinner("dots", text="[cyan]friday is thinking…[/cyan]"),
+    with Live(Spinner("dots", text="[cyan]juno is thinking…[/cyan]"),
               transient=True, console=console):
         reply, _ = chat(list(history))
     _render_reply(reply, voice=voice_out)
@@ -99,11 +99,11 @@ def _run_turn(history: list[dict], voice_in: bool, voice_out: bool) -> str:
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    # Variadic so quotes are optional: `friday i spent 3k on lunch` works
-    # the same as `friday "i spent 3k on lunch"`. The words are joined back
+    # Variadic so quotes are optional: `juno i spent 3k on lunch` works
+    # the same as `juno "i spent 3k on lunch"`. The words are joined back
     # into one message.
     words: Optional[List[str]] = typer.Argument(
-        None, help="Chat with friday interactively, or pass a one-shot message.",
+        None, help="Chat with juno interactively, or pass a one-shot message.",
     ),
     voice: bool = typer.Option(
         False, "--voice", "-V",
@@ -112,7 +112,7 @@ def main(
 ) -> None:
     message = " ".join(words).strip() if words else ""
 
-    # `friday help` prints the capability guide. Handled before preflight so
+    # `juno help` prints the capability guide. Handled before preflight so
     # it works even when no API key is set — a brand new user asking what
     # this thing does shouldn't be told off about configuration first.
     if message.lower().strip("?") in {"help", "commands", "what can you do",
@@ -128,7 +128,7 @@ def main(
         return
 
     console.print(Panel.fit(
-        "[bold cyan]F.R.I.D.A.Y[/bold cyan] online. Type [b]/help[/b] for what "
+        "[bold cyan]Juno[/bold cyan] online. Type [b]/help[/b] for what "
         "you can say,\n[b]/clear[/b] to reset memory, [b]/quit[/b] to exit.",
         border_style="cyan",
     ))

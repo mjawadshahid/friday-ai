@@ -3,15 +3,15 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "friday-ai"
+name = "juno-ai"
 version = "0.1.0"
-description = "F.R.I.D.A.Y — a personal AI assistant for your terminal."
+description = "Juno — a personal AI assistant for your terminal."
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "mjawadshahid" }]
 
-# Hard deps — everything needed to run friday in text mode.
+# Hard deps — everything needed to run juno in text mode.
 dependencies = [
     "openai>=1.30.0",
     "typer>=0.12.0",
@@ -34,9 +34,9 @@ voice = [
 ]
 groq-stt = ["groq>=0.5.0"]
 
-# This is the magic line: `friday` becomes a real command in your shell.
+# This is the magic line: `juno` becomes a real command in your shell.
 [project.scripts]
-friday = "main:app"
+juno = "main:app"
 
 [tool.setuptools]
 py-modules = ["config", "main"]

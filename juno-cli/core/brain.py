@@ -120,4 +120,4 @@ def chat(messages: list[dict[str, Any]]) -> tuple[str, list[dict[str, Any]]]:
                 "content": result,
             })
 
-    return "(friday: tool loop exceeded max iterations, stopping)", messages
+    return "(juno: tool loop exceeded max iterations, stopping)", messages

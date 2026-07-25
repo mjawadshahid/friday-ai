@@ -1,4 +1,4 @@
-# F.R.I.D.A.Y
+# Juno
 
 A personal AI assistant you run from your own terminal. The LLM is a free
 cloud API (OpenRouter, Groq, Gemini, or any OpenAI-compatible endpoint);
@@ -37,10 +37,10 @@ with the API key is ignored.
 Talk at it. One messy sentence, however many amounts:
 
 ```bash
-friday "spent 2k on uber, 1200 on the k-electric bill and like 3000 on dinner"
-friday "salary came in, 150k. also sold my old iphone for 20 thousand"
-friday "where did my money go this month"
-friday "how much did I save this month"
+juno "spent 2k on uber, 1200 on the k-electric bill and like 3000 on dinner"
+juno "salary came in, 150k. also sold my old iphone for 20 thousand"
+juno "where did my money go this month"
+juno "how much did I save this month"
 ```
 
 ### How little of this actually uses the model
@@ -82,7 +82,7 @@ ones you already have — exact match, then word-family prefix
 out of your own spending and then stays put. If two do drift apart:
 
 ```bash
-friday "merge Eating Out into Restaurants"
+juno "merge Eating Out into Restaurants"
 ```
 
 Money in and money out are stored in one table separated by `kind`, with
@@ -98,17 +98,17 @@ never the model's arithmetic.**
 Set your currency label in `.env` (display only, no conversion):
 
 ```ini
-FRIDAY_CURRENCY=PKR
+JUNO_CURRENCY=PKR
 ```
 
 ## Setup
 
 ```bash
-cd friday-cli
+cd juno-cli
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
 pip install -e .
-cp .env.example .env               # fill in OPENAI_API_KEY, OPENAI_BASE_URL, FRIDAY_MODEL
+cp .env.example .env               # fill in OPENAI_API_KEY, OPENAI_BASE_URL, JUNO_MODEL
 ```
 
 `-e` = editable mode. Code changes take effect immediately — no reinstall.
@@ -116,11 +116,11 @@ cp .env.example .env               # fill in OPENAI_API_KEY, OPENAI_BASE_URL, FR
 ## Usage
 
 ```bash
-friday help                             # what you can say, with examples
-friday                                  # interactive REPL (/help works inside)
-friday i spent 3k on lunch              # quotes optional
-friday "organize my Downloads folder"   # quote anything with ' & | > (
-friday --voice                          # talk to it (requires `pip install -e ".[voice]"`)
+juno help                             # what you can say, with examples
+juno                                  # interactive REPL (/help works inside)
+juno i spent 3k on lunch              # quotes optional
+juno "organize my Downloads folder"   # quote anything with ' & | > (
+juno --voice                          # talk to it (requires `pip install -e ".[voice]"`)
 ```
 
 ## Configuring the model
@@ -130,7 +130,7 @@ Everything is in `.env`:
 ```ini
 OPENAI_API_KEY=sk-or-v1-...
 OPENAI_BASE_URL=https://openrouter.ai/api/v1
-FRIDAY_MODEL=meta-llama/llama-3.1-70b-instruct
+JUNO_MODEL=meta-llama/llama-3.1-70b-instruct
 ```
 
 Swap providers any time by changing those three lines. The model name is
@@ -141,10 +141,10 @@ never hardcoded inside the code.
 ```ini
 OPENAI_API_KEY=ollama
 OPENAI_BASE_URL=http://localhost:11434/v1
-FRIDAY_MODEL=qwen3.5:9b
+JUNO_MODEL=qwen3.5:9b
 ```
 
-**Pick the model for tool calling, not for size.** Everything F.R.I.D.A.Y
+**Pick the model for tool calling, not for size.** Everything Juno
 does goes through function calls, so a model that's merely good at chatting
 is useless here. Tested on an M4 / 16 GB:
 
@@ -170,14 +170,14 @@ providers that don't accept the parameter.
 ## Project layout
 
 ```
-friday-cli/
+juno-cli/
 ├── main.py                CLI entry (typer + rich)
-├── pyproject.toml         packaging + the `friday` script entry point
+├── pyproject.toml         packaging + the `juno` script entry point
 ├── config.py              loads provider/model/base_url from .env
 ├── core/
 │   ├── brain.py           openai SDK + tool-calling loop
 │   ├── fastpath.py        answers money messages without the LLM
-│   ├── persona.py         F.R.I.D.A.Y system prompt
+│   ├── persona.py         Juno system prompt
 │   ├── voice.py           optional STT (faster-whisper / Groq) + TTS (pyttsx3)
 │   └── logger.py          append-only logs/actions.log
 ├── tools/
@@ -203,19 +203,19 @@ friday-cli/
 ## Background notifications (reminders when the CLI is closed)
 
 The CLI's startup banner is nice, but you also want a popup when you're
-not running `friday`. Use `python -m tools.check_reminders` with your
+not running `juno`. Use `python -m tools.check_reminders` with your
 OS's scheduler.
 
 ### Windows — Task Scheduler
 
 1. Open **Task Scheduler** → **Create Task…** (not "Basic Task").
-2. **General** tab: name it `F.R.I.D.A.Y reminders`, check
+2. **General** tab: name it `Juno reminders`, check
    "Run whether user is logged on or not".
 3. **Triggers** tab → **New…** → Daily, repeat every 5 minutes for 1 day.
 4. **Actions** tab → **New…**:
-   * Program/script: `C:\path\to\friday-cli\.venv\Scripts\python.exe`
+   * Program/script: `C:\path\to\juno-cli\.venv\Scripts\python.exe`
    * Add arguments: `-m tools.check_reminders`
-   * Start in: `C:\path\to\friday-cli`
+   * Start in: `C:\path\to\juno-cli`
 5. **Conditions** tab: uncheck "Start only if on AC power".
 6. Save (it'll ask for your Windows password).
 
@@ -230,7 +230,7 @@ crontab -e
 Add this line (runs every 5 minutes):
 
 ```
-*/5 * * * * cd /path/to/friday-cli && .venv/bin/python -m tools.check_reminders
+*/5 * * * * cd /path/to/juno-cli && .venv/bin/python -m tools.check_reminders
 ```
 
 > On macOS, the system needs to grant your terminal/cron agent permission
@@ -241,7 +241,7 @@ Add this line (runs every 5 minutes):
 
 ```bash
 pip install -e ".[voice]"
-friday --voice
+juno --voice
 ```
 
 This pulls in `faster-whisper` (local Whisper), `sounddevice` (mic),

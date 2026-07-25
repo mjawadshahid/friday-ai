@@ -36,9 +36,9 @@ class Settings:
 def load_settings() -> Settings:
     api_key = os.getenv("OPENAI_API_KEY", "")
     base_url = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
-    model = os.getenv("FRIDAY_MODEL", "meta-llama/llama-3.1-70b-instruct")
-    threshold = int(os.getenv("FRIDAY_DESTRUCTIVE_THRESHOLD", "5"))
-    currency = os.getenv("FRIDAY_CURRENCY", "PKR")
+    model = os.getenv("JUNO_MODEL", "meta-llama/llama-3.1-70b-instruct")
+    threshold = int(os.getenv("JUNO_DESTRUCTIVE_THRESHOLD", "5"))
+    currency = os.getenv("JUNO_CURRENCY", "PKR")
     return Settings(
         api_key=api_key,
         base_url=base_url,

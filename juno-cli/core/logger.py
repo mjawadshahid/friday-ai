@@ -23,7 +23,7 @@ LOG_DIR.mkdir(parents=True, exist_ok=True)
 
 # We use stdlib logging — it's boring, reliable, and thread-safe enough
 # for a single-user CLI. Format: 2026-07-04 15:55:42 | tool | args | result
-_logger = logging.getLogger("friday.actions")
+_logger = logging.getLogger("juno.actions")
 _logger.setLevel(logging.INFO)
 _logger.propagate = False  # don't double-log via root
 

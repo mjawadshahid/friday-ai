@@ -1,4 +1,4 @@
-"""The `friday help` capability guide.
+"""The `juno help` capability guide.
 
 Kept out of main.py so the CLI file stays about wiring, and kept out of the
 persona so showing it never costs a model call. This is the answer to
@@ -13,33 +13,33 @@ from rich.table import Table
 
 # (what you type, what happens)
 _LOGGING = [
-    ('friday spent 2k on uber, 500 on gas', "Logs both, picks categories itself"),
-    ('friday salary came in, 150k', "Logged as income, not spending"),
-    ('friday sold my old phone for 20k', "Income too; it works out which"),
-    ('friday spent 3k on dinner friday', "Backdated to Friday, not today"),
+    ('juno spent 2k on uber, 500 on gas', "Logs both, picks categories itself"),
+    ('juno salary came in, 150k', "Logged as income, not spending"),
+    ('juno sold my old phone for 20k', "Income too; it works out which"),
+    ('juno spent 3k on dinner friday', "Backdated to Friday, not today"),
 ]
 
 _VIEWING = [
-    ('friday show me my expenses', "Month by month, then this month"),
-    ('friday where did my money go', "Categories, this month"),
-    ('friday how much did i save', "In vs out vs what's left"),
-    ('friday my spending last month', "That month's categories"),
-    ('friday list my transactions', "Line items, with ids for fixing"),
-    ('friday show me this year by month', "12 month trend"),
-    ('friday what did i earn this year', "Income, broken down"),
+    ('juno show me my expenses', "Month by month, then this month"),
+    ('juno where did my money go', "Categories, this month"),
+    ('juno how much did i save', "In vs out vs what's left"),
+    ('juno my spending last month', "That month's categories"),
+    ('juno list my transactions', "Line items, with ids for fixing"),
+    ('juno show me this year by month', "12 month trend"),
+    ('juno what did i earn this year', "Income, broken down"),
 ]
 
 _FIXING = [
-    ('friday expense 12 was 2500 not 250', "Corrects it; the fix is remembered"),
-    ('friday delete expense 12', "Removes that entry"),
-    ('friday merge Eating Out into Restaurants', "Folds one category into another"),
+    ('juno expense 12 was 2500 not 250', "Corrects it; the fix is remembered"),
+    ('juno delete expense 12', "Removes that entry"),
+    ('juno merge Eating Out into Restaurants', "Folds one category into another"),
 ]
 
 _OTHER = [
-    ('friday organize my downloads', "Sorts files by type or date"),
-    ('friday clean junk files', "Previews first, trashes rather than deletes"),
-    ('friday remind me to call ali at 5pm', "Natural language reminders"),
-    ('friday list my reminders', "What's pending"),
+    ('juno organize my downloads', "Sorts files by type or date"),
+    ('juno clean junk files', "Previews first, trashes rather than deletes"),
+    ('juno remind me to call ali at 5pm', "Natural language reminders"),
+    ('juno list my reminders', "What's pending"),
 ]
 
 
@@ -56,8 +56,8 @@ def _section(console: Console, title: str, rows: list[tuple[str, str]]) -> None:
 def show_guide(console: Console | None = None) -> None:
     console = console or Console()
     console.print(Panel.fit(
-        "[bold cyan]F.R.I.D.A.Y[/bold cyan] — talk to it in plain English.\n"
-        "[dim]Quotes are optional: [/dim]friday i spent 3k on lunch",
+        "[bold cyan]Juno[/bold cyan] — talk to it in plain English.\n"
+        "[dim]Quotes are optional: [/dim]juno i spent 3k on lunch",
         border_style="cyan",
     ))
 
@@ -71,8 +71,8 @@ def show_guide(console: Console | None = None) -> None:
         "[dim]You never define categories; they come from what you log, and\n"
         "near-duplicates merge on their own. It gets faster as it learns\n"
         "your habits, and a correction sticks harder than its own guess.\n"
-        "Run [/dim]friday[dim] with no message for a chat session, or\n"
-        "[/dim]friday --voice[dim] to talk to it.[/dim]\n"
+        "Run [/dim]juno[dim] with no message for a chat session, or\n"
+        "[/dim]juno --voice[dim] to talk to it.[/dim]\n"
     )
     console.print(
         "[dim]Shell tip: unquoted is fine, but quote anything containing\n"
