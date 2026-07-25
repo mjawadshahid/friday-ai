@@ -599,6 +599,137 @@ def summarize_cashflow(period: str = "this month") -> dict:
     }
 
 
+def _month_keys(months: int) -> list[str]:
+    """The last `months` YYYY-MM keys, oldest first, including the current one."""
+    now = datetime.now()
+    year, month = now.year, now.month
+    keys: list[str] = []
+    for _ in range(max(1, months)):
+        keys.append(f"{year:04d}-{month:02d}")
+        month -= 1
+        if month == 0:
+            month, year = 12, year - 1
+    return list(reversed(keys))
+
+
+def monthly_report(months: int = 6) -> dict:
+    """Month-by-month spending, then this month's categories.
+
+    The default way to look at money here: the trend first, so a bad month
+    is visible next to the ones around it, and only then the breakdown of
+    where the current month went.
+    """
+    months = max(1, min(int(months or 6), 24))
+    keys = _month_keys(months)
+    start = f"{keys[0]}-01T00:00:00"
+
+    with get_conn() as conn:
+        rows = conn.execute(
+            "SELECT substr(spent_at, 1, 7) AS bucket, kind, SUM(amount) AS total "
+            "FROM expenses WHERE spent_at >= ? GROUP BY bucket, kind",
+            (start,),
+        ).fetchall()
+
+    # Months with nothing logged must still appear as zero, otherwise the
+    # trend silently skips them and reads as if spending was continuous.
+    spent = {k: 0.0 for k in keys}
+    earned = {k: 0.0 for k in keys}
+    for r in rows:
+        target = earned if r["kind"] == KIND_INCOME else spent
+        if r["bucket"] in target:
+            target[r["bucket"]] = r["total"]
+
+    if not any(spent.values()) and not any(earned.values()):
+        return {"months": months, "note": f"Nothing logged in the last {months} months."}
+
+    has_income = any(earned.values())
+    _render_monthly(keys, spent, earned, has_income, settings.currency)
+
+    # This month's categories, under the trend.
+    breakdown = summarize_expenses("this month", group_by="category")
+
+    active = [v for v in spent.values() if v]
+    return {
+        "months": months,
+        "currency": settings.currency,
+        "by_month": [
+            {"month": k, "spent": spent[k], "income": earned[k],
+             "net": earned[k] - spent[k]}
+            for k in keys
+        ],
+        "average_spend": round(sum(active) / len(active)) if active else 0,
+        "this_month": breakdown.get("breakdown", []),
+        "_rendered": True,
+    }
+
+
+def _render_monthly(keys: list[str], spent: dict, earned: dict,
+                    has_income: bool, currency: str) -> None:
+    from rich.table import Table
+
+    title = "Monthly money" if has_income else "Monthly spending"
+    table = Table(title=title, title_style="bold cyan", header_style="bold")
+    table.add_column("Month")
+    if has_income:
+        table.add_column("In", justify="right")
+    table.add_column("Out", justify="right")
+    if has_income:
+        table.add_column("Net", justify="right")
+    table.add_column("")
+    table.add_column("vs prev", justify="right")
+
+    # Scale the bars to spending alone. Including income flattens the very
+    # trend the chart exists to show, since income is usually the larger
+    # and steadier number.
+    top = max(spent.values()) or 1
+    # This table carries up to six columns, so the bar gets a narrower
+    # budget than the single-column summaries or it truncates on an 80
+    # column terminal.
+    width = 10 if has_income else _BAR_WIDTH
+    previous: Optional[float] = None
+
+    for key in keys:
+        out, inc = spent[key], earned[key]
+        bar = "█" * max(1, round(out / top * width)) if out else ""
+
+        # Month-on-month change is the number that actually prompts action.
+        if previous is None or previous == 0:
+            delta = ""
+        else:
+            pct = (out - previous) / previous * 100
+            tone = "red" if pct > 0 else "green"
+            delta = f"[{tone}]{pct:+.0f}%[/{tone}]"
+        previous = out
+
+        # Pretty month label: 2026-07 -> Jul 2026
+        label = datetime.strptime(key, "%Y-%m").strftime("%b %Y")
+        cells = [label]
+        if has_income:
+            cells.append(f"[green]{_money(inc, currency)}[/green]" if inc else "—")
+        cells.append(_money(out, currency) if out else "—")
+        if has_income:
+            net = inc - out
+            tone = "green" if net >= 0 else "red"
+            cells.append(f"[{tone}]{_money(net, currency)}[/{tone}]")
+        cells += [f"[cyan]{bar}[/cyan]", delta]
+        table.add_row(*cells)
+
+    active = [v for v in spent.values() if v]
+    if len(active) > 1:
+        table.add_section()
+        avg = sum(active) / len(active)
+        cells = ["[bold]Average[/bold]"]
+        if has_income:
+            cells.append("")
+        cells.append(f"[bold]{_money(avg, currency)}[/bold]")
+        if has_income:
+            cells.append("")
+        cells += ["", ""]
+        table.add_row(*cells)
+
+    _console().print(table)
+
+
 def correct_expense(expense_id: int, amount: float = None, category: str = "",
                     description: str = "") -> dict:
     """Fix a logged expense — wrong amount, wrong category, or wrong description."""
@@ -762,6 +893,10 @@ class SummarizeCashflowArgs(BaseModel):
     period: str = Field("this month", description="'this month', 'last month', 'this year', etc.")
 
 
+class MonthlyReportArgs(BaseModel):
+    months: int = Field(6, description="How many months back to show. Default 6.")
+
+
 class CorrectExpenseArgs(BaseModel):
     expense_id: int = Field(..., description="Numeric id of the expense to fix.")
     amount: Optional[float] = Field(None, description="New amount, if it was wrong.")
@@ -830,6 +965,18 @@ TOOL_SPECS = [
         ),
         "parameters": SummarizeExpensesArgs.model_json_schema(),
         "function": summarize_expenses,
+    },
+    {
+        "name": "monthly_report",
+        "description": (
+            "The default way to look at money: spending month by month with "
+            "the change from the previous month, followed by this month's "
+            "categories. Prints its own charts. Use for 'show me my "
+            "expenses', 'visualize my spending', 'how am I doing', or any "
+            "open request to see the money without a specific period."
+        ),
+        "parameters": MonthlyReportArgs.model_json_schema(),
+        "function": monthly_report,
     },
     {
         "name": "summarize_cashflow",

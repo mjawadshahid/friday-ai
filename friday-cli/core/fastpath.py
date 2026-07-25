@@ -114,11 +114,21 @@ def _looks_like_report(text: str) -> bool:
     return any(cue in text for cue in _REPORT_CUES + _CASHFLOW_CUES + _LIST_CUES)
 
 
+_MONTHLY_CUES = ("month by month", "monthly", "by month", "each month",
+                 "per month", "trend", "over time", "chart", "graph",
+                 "visuali", "last few months", "recent months")
+
+
+def _named_a_period(text: str) -> bool:
+    return bool(_LAST_N_DAYS.search(text)) or any(p in text for p in _PERIODS)
+
+
 def _handle_report(text: str) -> Optional[str]:
     """Answer a question about existing data. The tools print their own tables."""
     period, group_by = _period(text), _group_by(text)
     income = any(cue in text for cue in _INCOME_CUES)
 
+    # Specific asks win over the default view.
     if any(cue in text for cue in _CASHFLOW_CUES) and not income:
         result = expenses.summarize_cashflow(period)
         return result.get("note") or ""
@@ -128,6 +138,12 @@ def _handle_report(text: str) -> Optional[str]:
             period, kind="income" if income else "expense")
         return result.get("note") or ("" if result["count"] else
                                       f"Nothing logged for {result['period']}.")
+
+    # Monthly is the default frame: an open "show me my expenses" means the
+    # month-by-month view, not just whatever happens to be in this month.
+    wants_monthly = any(cue in text for cue in _MONTHLY_CUES)
+    if not income and (wants_monthly or not _named_a_period(text)):
+        return expenses.monthly_report(12 if "year" in text else 6).get("note") or ""
 
     result = expenses.summarize_expenses(
         period, group_by=group_by, kind="income" if income else "expense")
