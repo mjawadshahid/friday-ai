@@ -201,12 +201,32 @@ def _ask_for_categories(descriptions: list[str], known: list[str],
     except Exception:
         return ["" for _ in descriptions]
 
-    lines = [re.sub(r"^\s*\d+[.)]?\s*", "", ln).strip(" -*\t")
-             for ln in reply.splitlines() if ln.strip()]
-    lines = [ln for ln in lines if ln]
+    lines = [ln for ln in (_clean_label(x) for x in reply.splitlines()) if ln]
     # Pad or trim so every description gets exactly one answer.
     lines += [""] * (len(descriptions) - len(lines))
     return lines[: len(descriptions)]
+
+
+def _clean_label(line: str) -> str:
+    """Turn one line of model output into a category name, or reject it.
+
+    A small model asked for a category will sometimes answer with a
+    sentence ("where possible: no specific 'parking' in the user..."). That
+    string would otherwise be stored verbatim and become a permanent
+    category, so anything not shaped like a label is dropped and the entry
+    falls back to Uncategorized — which the user can correct once, and the
+    correction is then remembered.
+    """
+    text = re.sub(r"^\s*\d+[.)]?\s*", "", line).strip(" -*\t\"'.")
+    # Explanatory prose gives itself away with punctuation.
+    if any(ch in text for ch in ":;,()\"'"):
+        return ""
+    words = text.split()
+    if not words or len(words) > 3 or len(text) > 24:
+        return ""
+    if not re.fullmatch(r"[A-Za-z][A-Za-z &/-]*", text):
+        return ""
+    return text.title() if text.islower() else text
 
 
 def _handle_log(text: str) -> Optional[str]:
