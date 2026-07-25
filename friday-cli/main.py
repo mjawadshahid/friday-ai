@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 import typer
 from rich.console import Console
@@ -25,6 +25,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from config import settings                       # noqa: E402
 from core.brain import chat                       # noqa: E402
 from core.fastpath import try_fast_path           # noqa: E402
+from core.guide import show_guide                 # noqa: E402
 from tools.check_reminders import format_due, get_due  # noqa: E402
 
 app = typer.Typer(add_completion=False, help="F.R.I.D.A.Y — your terminal AI assistant.")
@@ -98,7 +99,10 @@ def _run_turn(history: list[dict], voice_in: bool, voice_out: bool) -> str:
 @app.callback(invoke_without_command=True)
 def main(
     ctx: typer.Context,
-    message: Optional[str] = typer.Argument(
+    # Variadic so quotes are optional: `friday i spent 3k on lunch` works
+    # the same as `friday "i spent 3k on lunch"`. The words are joined back
+    # into one message.
+    words: Optional[List[str]] = typer.Argument(
         None, help="Chat with friday interactively, or pass a one-shot message.",
     ),
     voice: bool = typer.Option(
@@ -106,16 +110,26 @@ def main(
         help="Enable voice mode: STT for input, TTS for output.",
     ),
 ) -> None:
+    message = " ".join(words).strip() if words else ""
+
+    # `friday help` prints the capability guide. Handled before preflight so
+    # it works even when no API key is set — a brand new user asking what
+    # this thing does shouldn't be told off about configuration first.
+    if message.lower().strip("?") in {"help", "commands", "what can you do",
+                                      "what can i do", ""} and message:
+        show_guide(console)
+        return
+
     _preflight()
 
-    if message is not None:
+    if message:
         history: list[dict] = [{"role": "user", "content": message}]
         _run_turn(history, voice_in=voice, voice_out=voice)
         return
 
     console.print(Panel.fit(
-        "[bold cyan]F.R.I.D.A.Y[/bold cyan] online. Type [b]/quit[/b] to exit, "
-        "[b]/clear[/b] to reset memory.",
+        "[bold cyan]F.R.I.D.A.Y[/bold cyan] online. Type [b]/help[/b] for what "
+        "you can say,\n[b]/clear[/b] to reset memory, [b]/quit[/b] to exit.",
         border_style="cyan",
     ))
     history: list[dict] = []
@@ -133,6 +147,9 @@ def main(
         if user_input.lower() == "/clear":
             history = []
             console.print("[dim]Memory cleared.[/dim]")
+            continue
+        if user_input.lower() in {"/help", "help", "/?"}:
+            show_guide(console)
             continue
 
         if voice and not user_input:

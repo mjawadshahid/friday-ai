@@ -1,10 +1,27 @@
 venv/
+.venv/
 __pycache__/
 *.pyc
-.env
-data/tasks.db
-logs/actions.log
 *.egg-info/
 build/
 dist/
 *.egg
+.DS_Store
+
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Personal data: never commit ----
+# Expenses, income and reminders live in data/, and logs/actions.log records
+# every tool call including amounts and descriptions. This repo is public, so
+# whole directories are ignored rather than single filenames: an exact pattern
+# like "data/tasks.db" would not have caught SQLite's -wal / -shm sidecars, a
+# rotated log, or a second database added later.
+data/
+logs/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3

@@ -14,6 +14,24 @@ LLM is allowed to call.
   are assigned automatically. See below.
 * **Voice mode** (optional) — local Whisper for STT, `pyttsx3` for TTS.
 
+## Your data never leaves your machine
+
+Everything is local: SQLite in `data/`, and with Ollama the model runs on
+your own hardware too, so nothing is sent anywhere.
+
+`data/` and `logs/` are both git-ignored as whole directories. That matters
+more than it looks — `logs/actions.log` records every tool call including
+amounts and descriptions, and an exact pattern like `data/tasks.db` would
+miss SQLite's `-wal` / `-shm` sidecars, a rotated log, or a second database
+added later. To check nothing is exposed:
+
+```bash
+git ls-tree -r origin/main --name-only | grep -Ei "\.db$|/data/|/logs/|\.env$"
+```
+
+That should print nothing. Only `.env.example` is tracked; your real `.env`
+with the API key is ignored.
+
 ## Money tracking
 
 Talk at it. One messy sentence, however many amounts:
@@ -98,10 +116,11 @@ cp .env.example .env               # fill in OPENAI_API_KEY, OPENAI_BASE_URL, FR
 ## Usage
 
 ```bash
-friday                                  # interactive REPL
-friday "organize my Downloads folder"   # one-shot
+friday help                             # what you can say, with examples
+friday                                  # interactive REPL (/help works inside)
+friday i spent 3k on lunch              # quotes optional
+friday "organize my Downloads folder"   # quote anything with ' & | > (
 friday --voice                          # talk to it (requires `pip install -e ".[voice]"`)
-friday --help
 ```
 
 ## Configuring the model

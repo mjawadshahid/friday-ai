@@ -1,7 +1,22 @@
 .venv/
+venv/
 __pycache__/
 *.pyc
-.env
-data/tasks.db
-logs/actions.log
 .DS_Store
+
+# ---- Secrets ----
+.env
+.env.*
+!.env.example
+
+# ---- Personal data: never commit ----
+# This repo is public. Financial data must never leave the machine, so these
+# match anywhere in the tree rather than only at the root: a leading-slash
+# pattern like "data/tasks.db" anchors to this directory and would not have
+# covered friday-cli/data/ at all.
+**/data/
+**/logs/
+*.db
+*.db-*
+*.sqlite
+*.sqlite3
