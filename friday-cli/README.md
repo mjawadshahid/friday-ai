@@ -25,6 +25,37 @@ friday "where did my money go this month"
 friday "how much did I save this month"
 ```
 
+### How little of this actually uses the model
+
+Money messages skip the tool-calling loop entirely. Amounts are found by
+regex, categories come from what you've logged before, and every table is
+printed straight from the database. Measured on an M4 with `qwen3.5:4b`:
+
+| Message | Model calls | Time |
+|---|---|---|
+| `where did my money go this month` | 0 | ~0.4s |
+| `spent 2k on uber` (seen before) | 0 | ~0.4s |
+| `spent 2k on uber` (brand new) | 1 short one | ~1.7s |
+| `organize my downloads` | full tool loop | seconds |
+
+The only thing still worth a model is naming a category for a description
+it has never seen, and even that is one short completion rather than the
+full loop with 13 tool schemas attached. Because spending repeats, that
+case gets rarer the longer you use it.
+
+Three layers, in order:
+
+1. `tools/money_parser.py` — splits text into amounts and descriptions.
+   Reports when it isn't sure instead of guessing.
+2. `tools/categorizer.py` — remembers every categorization. A whole
+   description is trusted immediately; a single word has to be confirmed
+   twice before it can decide anything on its own.
+3. `core/fastpath.py` — routes the message, and refuses anything that
+   isn't plainly about money so a reminder can't become an expense.
+
+Anything these can't answer falls through to the normal LLM path, so
+nothing is lost — it's just not the default anymore.
+
 **You never define categories.** The model reads each item and picks one.
 To stop that drifting into `Groceries` / `grocery` / `Food & Groceries` as
 three separate buckets, every category is normalized on write against the
@@ -101,16 +132,21 @@ is useless here. Tested on an M4 / 16 GB:
 | Model | Result |
 |---|---|
 | `llama3.1:8b` | ✗ Prints the tool call as chat text instead of calling it. Nothing gets logged. |
-| `qwen3.5:4b` | ~ Calls tools and gets amounts right, but drops fields (`category`, `description`) and its prose invents numbers. |
-| `qwen3.5:9b` | ✓ Recommended. ~6.6 GB, fits 16 GB comfortably. |
+| `qwen3.5:4b` | ✓ Recommended. 3.4 GB, fast, and correct on everything the money tools need. |
 
 The Qwen3.5 MoE (`35b-a3b`) is the nicer architecture — only ~3B active
 params — but 35B total is ~21 GB and won't fit in 16 GB. It's the one to
 use if you have 32 GB+.
 
-Because the money tools render their own tables and the assistant is
-forbidden from restating figures, a weaker model produces *worse commentary*
-but never wrong stored data.
+Two things make a small model safe here. The money tools render their own
+tables and the assistant is forbidden from restating figures, so a weaker
+model produces *worse commentary* but never wrong stored data. And most
+money messages never reach the model at all (see above).
+
+Qwen3.5 is a reasoning model: on a short question it will spend its whole
+token budget thinking and return an empty string. `core/brain.py` passes
+`reasoning_effort="none"` for the short calls, and retries without it for
+providers that don't accept the parameter.
 
 ## Project layout
 
@@ -121,6 +157,7 @@ friday-cli/
 ├── config.py              loads provider/model/base_url from .env
 ├── core/
 │   ├── brain.py           openai SDK + tool-calling loop
+│   ├── fastpath.py        answers money messages without the LLM
 │   ├── persona.py         F.R.I.D.A.Y system prompt
 │   ├── voice.py           optional STT (faster-whisper / Groq) + TTS (pyttsx3)
 │   └── logger.py          append-only logs/actions.log
@@ -129,6 +166,8 @@ friday-cli/
 │   ├── junk_cleaner.py    clean_junk(directory=None, dry_run=True)
 │   ├── reminders.py       add_reminder / list_reminders / complete_reminder
 │   ├── expenses.py        log_expenses / log_income / summaries / corrections
+│   ├── money_parser.py    plain English -> amounts, no LLM
+│   ├── categorizer.py     learned description -> category memory
 │   ├── check_reminders.py CLI notifier: python -m tools.check_reminders
 │   └── _db.py             sqlite init
 ├── data/tasks.db          auto-created on first run
