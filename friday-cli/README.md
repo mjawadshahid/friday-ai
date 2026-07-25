@@ -10,7 +10,47 @@ LLM is allowed to call.
 * **Organize files** — sort any folder by file type or by date.
 * **Clean junk** — scan temp dirs and browser caches; trashes (never deletes).
 * **Reminders** — natural-language times (`"tomorrow 5pm"`, `"in 3 hours"`).
+* **Money tracking** — log spending *and* income in plain English; categories
+  are assigned automatically. See below.
 * **Voice mode** (optional) — local Whisper for STT, `pyttsx3` for TTS.
+
+## Money tracking
+
+Talk at it. One messy sentence, however many amounts:
+
+```bash
+friday "spent 2k on uber, 1200 on the k-electric bill and like 3000 on dinner"
+friday "salary came in, 150k. also sold my old iphone for 20 thousand"
+friday "where did my money go this month"
+friday "how much did I save this month"
+```
+
+**You never define categories.** The model reads each item and picks one.
+To stop that drifting into `Groceries` / `grocery` / `Food & Groceries` as
+three separate buckets, every category is normalized on write against the
+ones you already have — exact match, then word-family prefix
+(`transport` → `transportation`), then fuzzy match. The vocabulary grows
+out of your own spending and then stays put. If two do drift apart:
+
+```bash
+friday "merge Eating Out into Restaurants"
+```
+
+Money in and money out are stored in one table separated by `kind`, with
+amounts always positive — the kind carries the sign. Their category
+vocabularies are separate namespaces, so an income category `Sale` can
+never merge into an expense category `Sales Tax`.
+
+Every money tool prints its own table to the terminal, and the system
+prompt forbids the assistant from restating figures it didn't read from a
+tool result — **the numbers you see are always straight from the database,
+never the model's arithmetic.**
+
+Set your currency label in `.env` (display only, no conversion):
+
+```ini
+FRIDAY_CURRENCY=PKR
+```
 
 ## Setup
 
@@ -46,6 +86,32 @@ FRIDAY_MODEL=meta-llama/llama-3.1-70b-instruct
 Swap providers any time by changing those three lines. The model name is
 never hardcoded inside the code.
 
+### Running fully local (Ollama)
+
+```ini
+OPENAI_API_KEY=ollama
+OPENAI_BASE_URL=http://localhost:11434/v1
+FRIDAY_MODEL=qwen3.5:9b
+```
+
+**Pick the model for tool calling, not for size.** Everything F.R.I.D.A.Y
+does goes through function calls, so a model that's merely good at chatting
+is useless here. Tested on an M4 / 16 GB:
+
+| Model | Result |
+|---|---|
+| `llama3.1:8b` | ✗ Prints the tool call as chat text instead of calling it. Nothing gets logged. |
+| `qwen3.5:4b` | ~ Calls tools and gets amounts right, but drops fields (`category`, `description`) and its prose invents numbers. |
+| `qwen3.5:9b` | ✓ Recommended. ~6.6 GB, fits 16 GB comfortably. |
+
+The Qwen3.5 MoE (`35b-a3b`) is the nicer architecture — only ~3B active
+params — but 35B total is ~21 GB and won't fit in 16 GB. It's the one to
+use if you have 32 GB+.
+
+Because the money tools render their own tables and the assistant is
+forbidden from restating figures, a weaker model produces *worse commentary*
+but never wrong stored data.
+
 ## Project layout
 
 ```
@@ -62,6 +128,7 @@ friday-cli/
 │   ├── file_organizer.py  organize_files(directory, mode)
 │   ├── junk_cleaner.py    clean_junk(directory=None, dry_run=True)
 │   ├── reminders.py       add_reminder / list_reminders / complete_reminder
+│   ├── expenses.py        log_expenses / log_income / summaries / corrections
 │   ├── check_reminders.py CLI notifier: python -m tools.check_reminders
 │   └── _db.py             sqlite init
 ├── data/tasks.db          auto-created on first run

@@ -26,6 +26,7 @@ class Settings:
     base_url: str
     model: str
     destructive_threshold: int  # files; tools must confirm above this
+    currency: str  # label shown next to expense amounts; no conversion is done
 
     @property
     def has_key(self) -> bool:
@@ -37,11 +38,13 @@ def load_settings() -> Settings:
     base_url = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
     model = os.getenv("FRIDAY_MODEL", "meta-llama/llama-3.1-70b-instruct")
     threshold = int(os.getenv("FRIDAY_DESTRUCTIVE_THRESHOLD", "5"))
+    currency = os.getenv("FRIDAY_CURRENCY", "PKR")
     return Settings(
         api_key=api_key,
         base_url=base_url,
         model=model,
         destructive_threshold=threshold,
+        currency=currency,
     )
 
 

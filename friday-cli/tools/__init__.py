@@ -13,8 +13,9 @@ from __future__ import annotations
 
 from typing import Any, Callable
 
-from . import file_organizer, junk_cleaner, reminders
+from . import expenses, file_organizer, junk_cleaner, reminders
 from .check_reminders import get_due
+from .expenses import TOOL_SPECS as _EXPENSES
 from .file_organizer import TOOL_SPEC as _FILE_ORG
 from .junk_cleaner import TOOL_SPEC as _JUNK
 from .reminders import TOOL_SPECS as _REMINDERS
@@ -26,6 +27,8 @@ TOOLS: list[ToolDict] = [
     _FILE_ORG,
     _JUNK,
     *_REMINDERS,  # add_reminder, list_reminders, complete_reminder
+    *_EXPENSES,   # log_expenses, list_expenses, summarize_expenses,
+                  # correct_expense, delete_expense, merge_categories
 ]
 
 # name -> function, for fast dispatch.
