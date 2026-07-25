@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from config import settings                       # noqa: E402
 from core.brain import chat                       # noqa: E402
+from core.fastpath import try_fast_path           # noqa: E402
 from tools.check_reminders import format_due, get_due  # noqa: E402
 
 app = typer.Typer(add_completion=False, help="F.R.I.D.A.Y — your terminal AI assistant.")
@@ -67,6 +68,23 @@ def _run_turn(history: list[dict], voice_in: bool, voice_out: bool) -> str:
             history.append({"role": "user", "content": listen()})
         except Exception as e:
             console.print(f"[red](voice input failed: {e})[/red]")
+
+    # Logging money and asking for a summary don't need the tool loop —
+    # they're handled locally in milliseconds. Only fall through to the
+    # model when the message is something else. See core/fastpath.py.
+    last = history[-1]["content"] if history else ""
+    try:
+        quick = try_fast_path(last)
+    except Exception as e:  # never let the shortcut break the assistant
+        console.print(f"[dim](fast path failed, asking the model: {e})[/dim]")
+        quick = None
+
+    if quick is not None:
+        # The tool already printed its table; an empty reply means there is
+        # genuinely nothing to add, so don't show an empty panel.
+        if quick.strip():
+            _render_reply(quick, voice=voice_out)
+        return quick
 
     with Live(Spinner("dots", text="[cyan]friday is thinking…[/cyan]"),
               transient=True, console=console):

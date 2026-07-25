@@ -367,6 +367,15 @@ def _render_cashflow(label: str, income: float, spent: float, net: float,
 
 # ---------- public tool functions ----------
 
+def known_categories(kind: str = KIND_EXPENSE) -> list[str]:
+    """Category names already in use for one direction, most-used first."""
+    with get_conn() as conn:
+        return [r["name"] for r in conn.execute(
+            "SELECT name FROM categories WHERE kind = ? ORDER BY uses DESC, name ASC",
+            (kind,),
+        ).fetchall()]
+
+
 def _log_entries(items: Any, when: str, kind: str) -> dict:
     """Shared writer for both log_expenses and log_income."""
     noun = "income entries" if kind == KIND_INCOME else "expenses"

@@ -29,6 +29,34 @@ def _client() -> OpenAI:
     return OpenAI(api_key=settings.api_key, base_url=settings.base_url)
 
 
+def complete(system: str, user: str, max_tokens: int = 200) -> str:
+    """One plain completion — no tools, no persona, no history.
+
+    The tool-calling loop sends 13 tool schemas and a 6KB system prompt on
+    every turn, which is most of what a local model spends its time on.
+    When all we need is a short judgement call (see core/fastpath.py), this
+    asks the narrow question instead and is several times faster.
+
+    Reasoning models (Qwen3, and anything else that thinks before it
+    answers) will happily spend the entire token budget on hidden reasoning
+    and return an empty string for a question this small, so we ask them
+    not to. Providers that don't understand the parameter reject the call,
+    hence the retry without it.
+    """
+    messages = [{"role": "system", "content": system},
+                {"role": "user", "content": user}]
+    try:
+        resp = _client().chat.completions.create(
+            model=settings.model, messages=messages,
+            max_tokens=max_tokens, reasoning_effort="none",
+        )
+    except Exception:
+        resp = _client().chat.completions.create(
+            model=settings.model, messages=messages, max_tokens=max_tokens,
+        )
+    return (resp.choices[0].message.content or "").strip()
+
+
 def _run_tool(name: str, raw_args: str) -> str:
     """Dispatch one tool call. Returns a string result the model can read."""
     if name not in TOOL_MAP:
