@@ -46,6 +46,7 @@ import dateparser
 from pydantic import BaseModel, Field
 
 from config import settings
+from . import categorizer
 from ._db import get_conn, init_db
 
 # Make sure the tables exist on first import.
@@ -268,11 +269,12 @@ def _console():
     return Console()
 
 
-def _render_summary(title: str, totals: list[dict], grand: float, currency: str) -> None:
+def _render_summary(title: str, totals: list[dict], grand: float, currency: str,
+                    bucket_label: str = "Category") -> None:
     from rich.table import Table
 
     table = Table(title=title, title_style="bold cyan", header_style="bold")
-    table.add_column("Category")
+    table.add_column(bucket_label)
     table.add_column("Amount", justify="right")
     table.add_column("Share", justify="right")
     table.add_column("")
@@ -379,6 +381,7 @@ def _log_entries(items: Any, when: str, kind: str) -> dict:
     logged: list[dict] = []
     rejected: list[dict] = []
     new_categories: list[str] = []
+    to_learn: list[tuple[str, str]] = []
 
     with get_conn() as conn:
         for item in items:
@@ -410,6 +413,8 @@ def _log_entries(items: Any, when: str, kind: str) -> dict:
             )
             conn.execute("UPDATE categories SET uses = uses + 1 WHERE fold = ?",
                          (_fold_key(category, kind),))
+            if description:
+                to_learn.append((description, category))
             logged.append({
                 "id": cur.lastrowid,
                 "amount": amount,
@@ -424,6 +429,12 @@ def _log_entries(items: Any, when: str, kind: str) -> dict:
         known = [r["name"] for r in conn.execute(
             "SELECT name FROM categories WHERE kind = ? ORDER BY uses DESC, name ASC", (kind,)
         ).fetchall()]
+
+    # Learn only after the write transaction has closed — the categorizer
+    # opens its own connection, and SQLite will lock if it does so while
+    # this one still holds the write.
+    for description, category in to_learn:
+        categorizer.remember(description, category, kind)
 
     if logged:
         _render_logged(logged, kind, settings.currency)
@@ -504,13 +515,22 @@ def summarize_expenses(period: str = "this month", group_by: str = "category",
     where = " WHERE kind = ?" + (f" AND {clause}" if clause else "")
     params = [kind] + params
 
+    # spent_at is stored as ISO 8601, so a substring is a valid date bucket:
+    # chars 1-7 are YYYY-MM, 1-10 are YYYY-MM-DD, 1-4 are the year.
     key = {"category": "category", "day": "substr(spent_at, 1, 10)",
-           "month": "substr(spent_at, 1, 7)"}.get(group_by, "category")
+           "month": "substr(spent_at, 1, 7)",
+           "year": "substr(spent_at, 1, 4)"}.get(group_by, "category")
+    bucket_label = {"day": "Day", "month": "Month",
+                    "year": "Year"}.get(group_by, "Category")
+
+    # Categories rank by size; time buckets read chronologically, because a
+    # month-by-month trend is meaningless out of order.
+    order = "bucket ASC" if group_by in {"day", "month", "year"} else "total DESC"
 
     with get_conn() as conn:
         rows = conn.execute(
             f"SELECT {key} AS bucket, SUM(amount) AS total, COUNT(*) AS n "
-            f"FROM expenses{where} GROUP BY bucket ORDER BY total DESC",
+            f"FROM expenses{where} GROUP BY bucket ORDER BY {order}",
             params,
         ).fetchall()
 
@@ -522,9 +542,9 @@ def summarize_expenses(period: str = "this month", group_by: str = "category",
         return {"period": label, "kind": kind, "total": 0, "breakdown": [],
                 "note": f"No {kind} logged for {label}."}
 
-    _render_summary(f"{noun} — {label}", totals, grand, settings.currency)
+    _render_summary(f"{noun} — {label}", totals, grand, settings.currency, bucket_label)
 
-    top = totals[0]
+    top = max(totals, key=lambda t: t["total"])
     return {
         "period": label,
         "kind": kind,
@@ -607,6 +627,14 @@ def correct_expense(expense_id: int, amount: float = None, category: str = "",
             "SELECT id, amount, currency, category, description, spent_at "
             "FROM expenses WHERE id = ?", (expense_id,)
         ).fetchone())
+
+    # A correction is the strongest signal available: the user personally
+    # said this was wrong. Unlearn the old pairing and weight the new one
+    # heavily, so the same mistake isn't repeated on the next similar entry.
+    if category.strip():
+        categorizer.forget(row["description"], row["kind"])
+        categorizer.remember(updated["description"], updated["category"],
+                             row["kind"], weight=5)
 
     return {"status": "updated", "before": {k: row[k] for k in ("amount", "category", "description")},
             "after": updated}
@@ -714,7 +742,10 @@ class ListExpensesArgs(BaseModel):
 
 class SummarizeExpensesArgs(BaseModel):
     period: str = Field("this month", description="'today', 'this week', 'last month', 'all time', etc.")
-    group_by: str = Field("category", description="'category' (default), 'day', or 'month'.")
+    group_by: str = Field(
+        "category",
+        description="'category' (default), or 'day' / 'month' / 'year' for a trend over time.",
+    )
     kind: str = Field("expense", description="'expense' (default) or 'income'.")
 
 

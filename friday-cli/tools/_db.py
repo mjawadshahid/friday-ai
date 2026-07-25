@@ -104,6 +104,28 @@ def init_db() -> None:
             """
         )
         _ensure_column(conn, "categories", "kind", "TEXT NOT NULL DEFAULT 'expense'")
+
+        # Learned categorization rules (tools/categorizer.py). Every time an
+        # entry is categorized, what it looked like and what it was called
+        # are remembered here, so the same purchase never needs the model
+        # twice. `scope` is 'phrase' (a whole description) or 'token' (one
+        # word); `hits` is how often that mapping has been confirmed.
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS rules (
+                pattern     TEXT    NOT NULL,
+                scope       TEXT    NOT NULL,
+                kind        TEXT    NOT NULL,
+                category    TEXT    NOT NULL,
+                hits        INTEGER NOT NULL DEFAULT 0,
+                created_at  TEXT    NOT NULL,
+                UNIQUE(pattern, scope, kind, category)
+            )
+            """
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_rules_lookup ON rules(kind, scope, pattern)"
+        )
         conn.commit()
 
 
